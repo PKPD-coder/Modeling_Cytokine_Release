@@ -1,0 +1,216 @@
+METHOD stiff
+
+STARTTIME = 0
+STOPTIME= 48
+DT = 0.02
+TOLERANCE= 1e-6
+
+
+;------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;model from the original paper from Singh and colleagues      		 DOI: 10.1080/19420862.2019.1688616
+;Model code was copy-pasted from the supplementary material and transformed where required from 
+;MLXTRAN language format in order to be compiled with Berkely-Madonna.
+
+;Parameters annotated with && have been adapted from the original model for simulation and visualisation purposes.
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+EC50 = 5.18			;number/cell, half-max CART expansion
+Kexp_CART_max = 0.0906	;max CAR expansion
+Kkill_max = 0.0486		;max killing
+IC50 = 9.94			;number/cell, half-max killing
+
+
+INIT C_Blood = 10000; # of cell per ml of tissue     ;&&differs from original&&
+INIT C_V_Lung = 0
+INIT C_E_Lung = 0
+INIT C_V_Spleen = 0
+INIT C_E_Spleen = 0
+INIT C_V_Kidney = 0
+INIT C_E_Kidney = 0
+INIT C_V_Brain = 0
+INIT C_E_Brain = 0
+INIT C_V_Other = 0
+INIT C_E_Other = 0
+INIT C_V_Tumor = 0
+INIT A_E_Tumor = 1E-20			;&&differs from original of 1e-10&&	
+INIT C_V_GI = 0
+INIT C_E_GI = 0
+INIT C_V_Liver = 0
+INIT C_E_Liver = 0
+INIT C_LN = 0
+route_0 = 0
+
+
+TargetCell = 10^8 ; Cells/mL
+INIT TE = 0
+KD =  21.2;nM needs still to be converted to cells/mL			;&&differs from original value of 1000		
+kon =  koff/KD; 1/((cells/ml)*hr)
+koff = 3.6 ; 1/hr
+Density_TAA = 340000							;&&differs from original value of 0&&
+INIT V_Tumor = 1E-10 ;unit is ml, initial tumor cell dose is 2E6
+
+;INIT Tact1 = 0
+;INIT Tact2 = 0
+;INIT Tact3 = 0
+;INIT Tact4 = 0
+
+INIT K1 = 0
+INIT K2 = 0
+INIT K3 = 0
+INIT K4 = 0
+
+
+; Physiological parameters; L was set as 1/5000 of Q ; 96 of Baxter T cell PBPK
+Q_Lung = 373 				;ml/h Dr. Shah Platform PBPK
+Q_Spleen = 8.18 			;ml/h Dr. Shah Platform PBPK
+Q_GI = 75.4 				;ml/h Dr. Shah Platform PBPK
+Q_Liver = 10.3 				;ml/h Dr. Shah Platform PBPK
+Q_Kidney = 68.5 			;ml/h Dr. Shah Platform PBPK
+Q_Brain = 11.8 				;ml/h Dr. Shah Platform PBPK
+Q_Tumor = 6.0 				;ml/h 1996 paper Baxter
+Q_Other = 192.82 			;ml/h (373-all)
+L_Lung = 0.0746 			;ml/h 
+L_Spleen = 0.00164 			;ml/h
+L_GI = 0.0151 				;ml/h
+L_Liver = 0.00206			 ;ml/h
+L_Kidney = 0.0137 			;ml/h
+L_Brain = 0.00236			 ;ml/h
+L_Tumor = 0.0012			 ;ml/h
+L_Other = 0.0386 			;ml/h
+L_LN = 0.14926	 			;ml/h sum of all the lymphatic flow rates
+
+V_Blood = 0.944 			;ml
+V_Lung_v = 0.0295 			;ml
+V_Lung_e = 0.0384 			;ml
+V_Spleen_v = 0.0154 			;ml
+V_Spleen_e = 0.0254 			;ml
+V_GI_v = 0.0166 			;ml
+V_GI_e = 0.1815 			;ml
+V_Liver_v = 0.164 			;ml
+V_Liver_e = 0.385 			;ml
+V_Kidney_v = 0.0289 			;ml
+V_Kidney_e = 0.0788 			;ml
+V_Brain_v = 0.0107 			;ml
+V_Brain_e = 0.0873 			;ml
+V_Tumor_v = 0.113* V_Tumor 		;11.3% of total volume is vascular volume, calculated from 1996 PBPK paper
+V_Tumor_e = 0.887* V_Tumor
+V_Other_v = 0.55209 			;ml (others has to be all organs sum which are not included)
+V_Other_e = 4.11183 			;ml (others has to be all organs sum which are not included)
+V_LN = 0.113 				;ml, from platform paper
+
+;These J values and Kdep value are estimated from the PBPK model (model 9, RUN4)
+J_Lung = 4705.13
+J_Spleen = 1799.76
+J_Liver = 716.49
+J_Kidney = 296.75
+J_Tumor = 10.35						;&&was varied for simulation purposes: 2 (low), 10 (mid), 50 (high) accessibility [1/h]
+FR_LN = 1
+FR_Spleen = 1
+Kdep_Liver = 0.0288
+
+;Other J values, from 2019 Shah paper
+J_Brain = 1.4 ;/h
+J_GI = 9.05 ;/h
+J_Other = 86.8 ;1/h
+
+;Other parameters
+Density_CAR = 5000
+
+
+
+;Ordinary Differential Equations
+Density_TAA = 100000
+route = 0
+
+
+; disposition of CAR-Ts in Blood $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ 
+C_Blood' = (-(Q_Lung+L_Lung)*C_Blood + (Q_GI-L_GI+Q_Spleen-L_Spleen +Q_Liver-L_Liver)*C_V_Liver + (Q_Kidney-L_Kidney)*C_V_Kidney + (Q_Brain-L_Brain)*C_V_Brain+ L_LN*FR_LN*C_LN+ (Q_Other-L_Other)*C_V_Other + (Q_Tumor-L_Tumor)*C_V_Tumor)/V_Blood 
+
+; Disposition of CAR-Ts in Lungs $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ 
+; Vascular space 
+C_V_Lung' = ((Q_Lung+L_Lung)*C_Blood - J_Lung*C_V_Lung*V_Lung_v - Q_Lung*C_V_Lung)/V_Lung_v 
+; Extravascular Space 
+C_E_Lung' = (J_Lung*C_V_Lung*V_Lung_v - L_Lung*C_E_Lung)/V_Lung_e
+
+; Disposition of CAR-Ts in Spleen $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ 
+; Vascular space 
+C_V_Spleen' = (Q_Spleen*C_V_Lung - J_Spleen*C_V_Spleen*V_Spleen_v - (Q_Spleen-L_Spleen)*C_V_Spleen)/V_Spleen_v 
+; Extravascular Space 
+C_E_Spleen' = (J_Spleen*C_V_Spleen*V_Spleen_v - L_Spleen*C_E_Spleen)/V_Spleen_e
+
+; Disposition of CAR-Ts in Kidney $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ 
+; Vascular space 
+C_V_Kidney' = (Q_Kidney*C_V_Lung - J_Kidney*C_V_Kidney*V_Kidney_v - (Q_Kidney-L_Kidney)*C_V_Kidney)/V_Kidney_v 
+; Extravascular Space 
+C_E_Kidney' = (J_Kidney*C_V_Kidney*V_Kidney_v - L_Kidney*C_E_Kidney)/V_Kidney_e 
+
+; Disposition of CAR-Ts in Brain $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ 
+; Vascular space 
+C_V_Brain' = (Q_Brain*C_V_Lung - J_Brain*C_V_Brain*V_Brain_v - (Q_Brain-L_Brain)*C_V_Brain)/V_Brain_v 
+; Extravascular Space 
+C_E_Brain' = (J_Brain*C_V_Brain*V_Brain_v - L_Brain*C_E_Brain)/V_Brain_e
+
+; Disposition of CAR-Ts in Others $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ 
+; Vascular space 
+C_V_Other' = (Q_Other*C_V_Lung - J_Other*C_V_Other*V_Other_v - (Q_Other-L_Other)*C_V_Other)/V_Other_v 
+; Extravascular Space 
+C_E_Other' = (J_Other*C_V_Other*V_Other_v - L_Other*C_E_Other)/V_Other_e
+
+; Disposition of CAR-Ts in GI $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ 
+; Vascular space 
+C_V_GI' = (Q_GI*C_V_Lung - J_GI*C_V_GI*V_GI_v - (Q_GI-L_GI)*C_V_GI )/V_GI_v 
+; Extravascular Space 
+C_E_GI' = (J_GI*C_V_GI*V_GI_v - L_GI*C_E_GI)/V_GI_e 
+
+; Disposition of CAR-Ts in Liver $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ 
+; Vascular space 
+C_V_Liver' = (Q_Liver*C_V_Lung - J_Liver*C_V_Liver*V_Liver_v -(Q_GI-L_GI+Q_Spleen-L_Spleen +Q_Liver-L_Liver)*C_V_Liver + (Q_GI-L_GI)*C_V_GI + (Q_Spleen-L_Spleen)*C_V_Spleen)/V_Liver_v 
+; Extravascular Space 
+C_E_Liver' = (J_Liver*C_V_Liver*V_Liver_v - L_Liver*C_E_Liver)/V_Liver_e - Kdep_Liver * C_E_Liver
+
+; Disposition of CAR-Ts in LN $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ 
+C_LN' = (L_Liver*C_E_Liver + L_GI*C_E_GI + L_Tumor*(A_E_Tumor/V_Tumor_e - TE/Density_CAR) + L_Other*C_E_Other + L_Brain*C_E_Brain + L_Kidney*C_E_Kidney + L_Spleen*C_E_Spleen*FR_Spleen + L_Lung*C_E_Lung - L_LN*FR_LN*C_LN)/V_LN
+
+; Disposition of CAR-Ts in Tumors$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ 
+; Vascular space 
+C_V_Tumor' = (Q_Tumor*C_V_Lung - J_Tumor*C_V_Tumor*V_Tumor_v - (Q_Tumor-L_Tumor)*C_V_Tumor)/V_Tumor_v ;unit is #/ml
+; Extravascular Space 
+CplxPCART = TE * V_Tumor_e / A_E_Tumor
+
+CplxPT = TE/TargetCell ; = TE * V_Tumor_e/ (TargetCell * V_Tumor_e)
+
+Kact_CART = Kexp_CART_max * (CplxPT)^gamma_act / ((CplxPT)^gamma_act + (EC50)^gamma_act)
+gamma_act = 1
+Kexp_CART_max  = 0.0906
+
+Kkill= Kkill_max * (CplxPT)^gamma_kill / ((CplxPT)^gamma_kill + (IC50)^gamma_kill)
+gamma_kill = 1
+tau_kill = 21.6
+Kkill_max = 0.0486
+
+K1' = (1/tau_kill)*(Kkill - K1)
+
+K2' = (1/tau_kill)*(K1 - K2)
+
+K3' = (1/tau_kill)*(K2 - K3)
+
+K4' = (1/tau_kill)*(K3 - K4)
+
+TE' = kon*((A_E_Tumor /V_Tumor_e)*Density_CAR - TE)*(TargetCell*Density_TAA - TE) - koff*TE ;unit is #/ml
+
+A_E_Tumor' = J_Tumor*C_V_Tumor*V_Tumor_v - L_Tumor*(A_E_Tumor/V_Tumor_e - TE/Density_CAR) + Kact_CART * A_E_Tumor ;unit is #
+
+V_Tumor' = Kg_Exp_Tumor * V_Tumor - K4 * V_Tumor
+kg_Exp_Tumor = 0.00305
+
+OutputVolume = IF V_Tumor <= 0 THEN 0 ELSE  V_Tumor * 1000 ;convert ml to mm3
+
+
+OutputCART = C_Blood / 1000 ;convert #/mL to #/uL
+
+Cyt' = Kcyt_max*CplxPT/(CplxPT+Cyt50)*(1-Cyt/Cytmax) 
+INIT Cyt = 0
+Kcyt_max = 52
+Cyt50= 	0.08
+Cytmax = 5000								;&& value not reported in paper, required to cap cytokine release&&
+

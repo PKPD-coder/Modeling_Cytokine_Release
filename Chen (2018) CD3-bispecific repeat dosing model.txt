@@ -1,0 +1,42 @@
+METHOD RK4
+
+STARTTIME = 0
+STOPTIME=200
+DT = 0.02
+
+
+;---------------------------------------------------------------------------------------------------------------------------------------------------------------
+;Model based on equations reported in the original paper from Chen et al. 2019           DOI:10.1111/cts.12662
+;---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+;DRUG PK
+dose1= 60							;first dose [ug]
+dose2= 300							;second dose [ug]
+Cpla' = D/V - CL*Cpla/V						;plasma concentration of CD3-bispecific [ug/mL] assumed following a 1-compartment model with linear clearance        
+CL = 12.5							;plasma clearance of CD3-bispecific [mL/h]				
+V = 3100							;volume of distribution of CD3-bispecific [mL]
+D = pulse(dose1,0,24) + pulse(dose2,168,24) - pulse(dose1,24,24)  - pulse(dose2,192,24) 	;step-up dosing regimen of dose1 at day0 and dose2 at day7
+
+;DRUG ACTION ON CYTOKINE RELEASE
+Syn = Cpla*Tutot						;approximation of synapse formation for hematological tumors as proposed in the paper [ug/mL*cells/uL]
+Tutot = 10							;total tumor cells [cells/uL]
+C' = Emax*Syn/(EC50+Syn)*IH - deg*(C-BL)			;IL6 release in plasma [ug/mL]
+AUC' = C							;integration of cytokine plasma concentration curve [pg/mL/h]
+IH =1- Imax*(AUC)/(IC50/(K^(n-1))+(AUC))			;negative feedback term on cytokine release 
+n=1+step(1,168)							;number of respective dose, affecting potency of negative feedback term
+
+
+
+;PARAMETERS as provided in the paper
+Emax = 3590							;Maximum cytokine release rate [pg/mL/h]
+Imax=1								;Maximum inhibition of cytokine release [N/A]
+EC50=10							;amount of synapse leading to half-maximum cytokine release [ug/mL*cells/uL]
+IC50=182							;cytokine exposure (AUC) leading to half-maximal cytokine release inhibition [pg/mL/h]
+K =2.83								;priming factor on cytokine release inhibition upon repeat dosing [N/A]
+deg=0.18							;cytokine degradation rate [1/h]
+BL =0								;baseline cytokine concentration [pg/mL]
+
+;INITIAL CONDITIONS
+INIT C = BL							;initial cytokine concentration
+INIT AUC = 0							;initial cytokine exposure
+INIT Cpla = 0							;initial plasma concentration of drug
